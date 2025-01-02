@@ -341,20 +341,41 @@ public:
 	size_t loadBuffer(indexedbuffer* buf,	//!< buffer to load
 					  int i)				//!< index of first sample
 	{		
-// digitalWriteFast(35,1);
+		/*
+		if (_constantPreloadedBuffer == nullptr) {
+			_constantPreloadedBuffer->buffer_size = BUFFER_SIZE * 2 * element_size;
+			_constantPreloadedBuffer->index = 0;
+			_constantPreloadedBuffer->status = loaded;
+			_constantPreloadedBuffer->bufInPSRAM = _bufInPSRAM;
+			_constantPreloadedBuffer = new indexedbuffer(_constantPreloadedBuffer->buffer_size , _bufInPSRAM);
+			_file.seek(0);
+			size_t bytesRead = _file.read(buf->buffer, _constantPreloadedBuffer->buffer_size);
+			if(bytesRead < (size_t)_constantPreloadedBuffer->buffer_size) {
+				delete _constantPreloadedBuffer;
+				_constantPreloadedBuffer = nullptr;
+			}
+		}
+		*/
+
+		// digitalWriteFast(35,1);
 		// figure out file position to load into the buffer
 		size_t basePos = i & buffer_mask;
 		size_t seekPos = basePos * element_size;
-		
-		// load the sample data from the file: note BUFFER_SIZE is in samples
-		_file.seek(seekPos);
-		size_t bytesRead = _file.read(buf->buffer, BUFFER_SIZE * element_size);
-		#ifndef TEENSYDUINO
-		if (!_file.available()){  
-			_file.close();
-			_file = open(_filename);
+		size_t bytesRead = 0;
+
+		if(/*seekPos < (size_t)_constantPreloadedBuffer->buffer_size*/ false) {
+			memcpy(buf->buffer, _constantPreloadedBuffer->buffer + seekPos, BUFFER_SIZE * element_size);
+		} else {
+			// load the sample data from the file: note BUFFER_SIZE is in samples
+			_file.seek(seekPos);
+			bytesRead = _file.read(buf->buffer, BUFFER_SIZE * element_size);
+			#ifndef TEENSYDUINO
+			if (!_file.available()){  
+				_file.close();
+				_file = open(_filename);
+			}
+			#endif
 		}
-		#endif
 		
 		// fill in remaining indexedbuffer information: at the end of the file
 		// we may not have enough samples to fill the buffer.
@@ -422,18 +443,22 @@ public:
 	*/
 	int16_t zero = 0;
     int16_t &operator[](int i) {
-        int32_t indexFor_i = i >> buffer_to_index_shift;
-        indexedbuffer *match = find_with_index(indexFor_i); // find which buffer has the sample
-		
-        if (match == nullptr)  // none of the buffers contains the required sample
-		{
-			fails++;
-			zero = 0; 		// in case someone wrote to the reference at some point!
-			return zero;	// stutter, but don't crash due to reading filesystem under interrupt
-        }
-		match->status = 'r';
-		
-        return match->buffer[i & ~buffer_mask];
+			if(false/*_constantPreloadedBuffer != nullptr && i < (int)(_constantPreloadedBuffer->buffer_size>>1)*/) {
+				return _constantPreloadedBuffer->buffer[i];
+			} else {
+					int32_t indexFor_i = i >> buffer_to_index_shift;
+					indexedbuffer *match = find_with_index(indexFor_i); // find which buffer has the sample
+			
+					if (match == nullptr)  // none of the buffers contains the required sample
+					{
+						fails++;
+						zero = 0; 		// in case someone wrote to the reference at some point!
+						return zero;	// stutter, but don't crash due to reading filesystem under interrupt
+					}
+					match->status = 'r';
+			
+					return match->buffer[i & ~buffer_mask];
+			}
     }
 
     void close() {
@@ -473,6 +498,7 @@ protected:
 	
 	// vector of audio buffers with status etc.
 	std::vector<indexedbuffer*> _buffers;
+	indexedbuffer* _constantPreloadedBuffer = nullptr;
 
 	// search vector of buffers for the one with a 
 	// specific sample (set) in it.
