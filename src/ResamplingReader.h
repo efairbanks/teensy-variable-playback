@@ -181,6 +181,16 @@ public:
         return true;
     }
 
+    bool play()
+    {
+        //stop();
+        reset();
+        _sourceBuffer->resetStatus();
+        _sourceBuffer->preLoadBuffers(_bufferPosition1, _bufferInPSRAM);
+        _playing = true;
+        return true;
+    }
+
     bool load(const char *filename, bool isWave, uint16_t numChannelsIfRaw = 0)
     {
         close();
@@ -283,14 +293,6 @@ public:
 
     bool loadWav(const char *filename){
         return load(filename, true);
-    }
-
-    bool play()
-    {
-        stop();
-        reset();
-        _playing = true;
-        return true;
     }
 
     void stop(void)
@@ -836,7 +838,9 @@ int numberOfSamplesToUpdate;
     int32_t _loop_finish = 0;
 	int32_t _file_samples = 0;
     int16_t _numChannels = -1;
+public:
     char *_filename = nullptr;
+protected:
     TArray *_sourceBuffer = nullptr;
 	bool _bufferInPSRAM = false;
 

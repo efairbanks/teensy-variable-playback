@@ -6,7 +6,7 @@
 #include "loop_type.h"
 #include "AudioEventResponder.h"
 
-extern void readerClose(void);
+//extern void readerClose(void);
 
 template <class TResamplingReader>
 class AudioPlayResmp : public AudioStream, public newdigate::AudioEventResponder
@@ -36,7 +36,7 @@ class AudioPlayResmp : public AudioStream, public newdigate::AudioEventResponder
 						break;
 						
 					case evClose:
-						reader->close();
+						//reader->close();
 						break;
 				}
 			enableResponse();
@@ -176,10 +176,19 @@ class AudioPlayResmp : public AudioStream, public newdigate::AudioEventResponder
         }
 
         void play() {
+
 			disableResponse();
-			clearEvent();
+            stop();
+			if (getForceResponse())
+				attachPolled(event_response);
+			else
+				attach(event_response);
+			updateResponse();
+            //bool result = reader->play(filename, true, 0);
             reader->play();
 			enableResponse();
+
+            //playWav(reader->_filename);
         }
 		
 		size_t getBufferSize(void) { return reader->getBufferSize(); }

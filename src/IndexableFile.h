@@ -349,11 +349,7 @@ public:
 			_constantPreloadedBuffer->status = loaded;
 			_constantPreloadedBuffer->bufInPSRAM = _bufInPSRAM;
 			_file.seek(0);
-			size_t bytesRead = _file.read(_constantPreloadedBuffer->buffer, _constantPreloadedBuffer->buffer_size);
-			// if(bytesRead < (size_t)_constantPreloadedBuffer->buffer_size) {
-			// 	delete _constantPreloadedBuffer;
-			// 	_constantPreloadedBuffer = nullptr;
-			// }
+			_file.read(_constantPreloadedBuffer->buffer, _constantPreloadedBuffer->buffer_size);
 		}
 
 		// digitalWriteFast(35,1);
@@ -443,37 +439,37 @@ public:
 	*/
 	int16_t zero = 0;
     int16_t &operator[](int i) {
-			if(_constantPreloadedBuffer != nullptr && i < (int)(_constantPreloadedBuffer->buffer_size>>1)) {
-				return _constantPreloadedBuffer->buffer[i];
-			} else {
-					int32_t indexFor_i = i >> buffer_to_index_shift;
-					indexedbuffer *match = find_with_index(indexFor_i); // find which buffer has the sample
-			
-					if (match == nullptr)  // none of the buffers contains the required sample
-					{
-						fails++;
-						zero = 0; 		// in case someone wrote to the reference at some point!
-						return zero;	// stutter, but don't crash due to reading filesystem under interrupt
-					}
-					match->status = 'r';
-			
-					return match->buffer[i & ~buffer_mask];
+			int32_t indexFor_i = i >> buffer_to_index_shift;
+			indexedbuffer *match = find_with_index(indexFor_i); // find which buffer has the sample
+	
+			if (match == nullptr)  // none of the buffers contains the required sample
+			{
+				fails++;
+				zero = 0; 		// in case someone wrote to the reference at some point!
+				if(_constantPreloadedBuffer != nullptr && i < (int)(_constantPreloadedBuffer->buffer_size>>1)) {
+					return _constantPreloadedBuffer->buffer[i];
+				} else {
+					return zero;	// stutter, but don't crash due to reading filesystem under interrupt
+				}
 			}
+			match->status = 'r';
+	
+			return match->buffer[i & ~buffer_mask];
     }
 
     void close() {
-		// close file if open
+				// close file if open
         if (_file.available()) {
             _file.close();
         }
 
-		// delete all buffered data and clear the vector
-		for (auto && x : _buffers){
+				// delete all buffered data and clear the vector
+				for (auto && x : _buffers){
             delete x;
         }
         _buffers.clear();
 
-		// delete the filename
+				// delete the filename
         if (_filename != nullptr) {
             delete [] _filename;
             _filename = nullptr;

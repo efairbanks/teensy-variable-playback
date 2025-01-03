@@ -51,6 +51,7 @@ public:
 
     void close(void) override
     {
+        /*
         if (_playing)
             stop();
 		
@@ -64,6 +65,7 @@ public:
             delete [] _filename;
             _filename = nullptr;
         }
+        */
     }
 
     IndexableSDFile<RESAMPLE_BUFFER_SAMPLE_SIZE, RESAMPLE_BUFFER_COUNT>* createSourceBuffer() override {
