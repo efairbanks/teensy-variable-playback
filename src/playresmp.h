@@ -75,6 +75,20 @@ class AudioPlayResmp : public AudioStream, public newdigate::AudioEventResponder
 			enableResponse();
 			return result;
         }
+
+        bool loadWav(const char *filename)
+        {
+			disableResponse();
+            stop();
+			if (getForceResponse())
+				attachPolled(event_response);
+			else
+				attach(event_response);
+			updateResponse();
+            bool result = reader->load(filename, true, 0);
+			enableResponse();
+			return result;
+        }
         
         bool playRaw(int16_t *data, uint32_t numSamples, uint16_t numChannels)
         {
@@ -158,6 +172,13 @@ class AudioPlayResmp : public AudioStream, public newdigate::AudioEventResponder
 			disableResponse();
 			clearEvent();
             reader->stop();
+			enableResponse();
+        }
+
+        void play() {
+			disableResponse();
+			clearEvent();
+            reader->play();
 			enableResponse();
         }
 		

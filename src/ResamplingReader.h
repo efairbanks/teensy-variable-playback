@@ -180,6 +180,93 @@ public:
         _playing = true;
         return true;
     }
+
+    bool load(const char *filename, bool isWave, uint16_t numChannelsIfRaw = 0)
+    {
+        close();
+
+        if (!isWave) // if raw file, then hardcode the numChannels as per the parameter
+            setNumChannels(numChannelsIfRaw);
+
+        _filename = new char[strlen(filename)+1] {0};
+        memcpy(_filename, filename, strlen(filename) + 1);
+
+// digitalWriteFast(36,1);
+        TFile file = open(_filename);
+// digitalWriteFast(36,0);
+		
+        if (!file) {
+            Serial.printf("Not able to open file: %s\n", _filename);
+            if (_filename) delete [] _filename;
+            _filename = nullptr;
+            return false;
+        }
+
+        _file_size = file.size();
+        if (isWave) {
+            wav_header wav_header;
+            wav_data_header data_header;
+
+            WaveHeaderParser wavHeaderParser;
+            char buffer[36];
+            file.read(buffer, 36);
+            
+            wavHeaderParser.readWaveHeaderFromBuffer((const char *) buffer, wav_header);
+            if (wav_header.bit_depth != 16) {
+                Serial.printf("Needs 16 bit audio! Aborting.... (got %d)", wav_header.bit_depth);
+                return false;
+            }
+            setNumChannels(wav_header.num_channels);
+            
+            file.read(buffer, 8);
+            unsigned infoTagsSize;
+            if (!wavHeaderParser.readInfoTags((unsigned char *)buffer, 0, infoTagsSize))
+            {
+                Serial.println("Not able to read header! Aborting...");
+                return false;
+            }
+
+            file.seek(36 + infoTagsSize);
+            file.read(buffer, 8);
+
+            if (!wavHeaderParser.readDataHeader((unsigned char *)buffer, 0, data_header)) {
+                Serial.println("Not able to read header! Aborting...");
+                return false;
+            }
+
+            _header_offset = (44 + infoTagsSize) / 2;
+            _file_samples = ((data_header.data_bytes) / 2);//*/ + _header_offset; 
+        } else 
+            _file_samples = _file_size / 2;
+		
+        if (uint32_t(_file_size) <= _header_offset * sizeof(int16_t)) {
+			file.close();
+            _playing = false;
+            if (_filename) delete [] _filename;
+            _filename =  nullptr;
+            Serial.printf("Wave file contains no samples: %s\n", filename);
+            return false;
+        }
+        
+        _file_samples /= _numChannels; // make sample count same basis as loop start/finish
+
+		if (looptype_none == _loopType)
+		{
+			_loop_start = 0;
+			_loop_finish = _file_samples;
+		}
+        
+		_sourceBuffer = createSourceBuffer(file);
+		_sourceBuffer->setLoopType(_loopType);
+		_sourceBuffer->setLoopStart(_samples_to_start(_loop_start));
+		_sourceBuffer->setLoopFinish(_samples_to_start(_loop_finish));
+        reset(); // sets _bufferPosition1 ready for playback
+		if (_playbackRate >= 0.0f)
+			_sourceBuffer->preLoadBuffers(_bufferPosition1, _bufferInPSRAM);
+		else
+			_sourceBuffer->preLoadBuffers(_bufferPosition1, _bufferInPSRAM, false);
+        return true;
+    }
 	
 	size_t getBufferSize(void) { return _sourceBuffer?_sourceBuffer->getBufferSize():-1; }
 	void resetStatus(void) { if (_sourceBuffer) _sourceBuffer->resetStatus(); }
@@ -192,6 +279,10 @@ public:
     
     bool playWav(const char *filename){
         return play(filename, true);
+    }
+
+    bool loadWav(const char *filename){
+        return load(filename, true);
     }
 
     bool play()

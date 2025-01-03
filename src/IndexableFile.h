@@ -341,21 +341,20 @@ public:
 	size_t loadBuffer(indexedbuffer* buf,	//!< buffer to load
 					  int i)				//!< index of first sample
 	{		
-		/*
 		if (_constantPreloadedBuffer == nullptr) {
-			_constantPreloadedBuffer->buffer_size = BUFFER_SIZE * 2 * element_size;
+			int16_t bufferSize = BUFFER_SIZE * element_size;
+			_constantPreloadedBuffer = new indexedbuffer(bufferSize, _bufInPSRAM);
+			_constantPreloadedBuffer->buffer_size = bufferSize;
 			_constantPreloadedBuffer->index = 0;
 			_constantPreloadedBuffer->status = loaded;
 			_constantPreloadedBuffer->bufInPSRAM = _bufInPSRAM;
-			_constantPreloadedBuffer = new indexedbuffer(_constantPreloadedBuffer->buffer_size , _bufInPSRAM);
 			_file.seek(0);
-			size_t bytesRead = _file.read(buf->buffer, _constantPreloadedBuffer->buffer_size);
-			if(bytesRead < (size_t)_constantPreloadedBuffer->buffer_size) {
-				delete _constantPreloadedBuffer;
-				_constantPreloadedBuffer = nullptr;
-			}
+			size_t bytesRead = _file.read(_constantPreloadedBuffer->buffer, _constantPreloadedBuffer->buffer_size);
+			// if(bytesRead < (size_t)_constantPreloadedBuffer->buffer_size) {
+			// 	delete _constantPreloadedBuffer;
+			// 	_constantPreloadedBuffer = nullptr;
+			// }
 		}
-		*/
 
 		// digitalWriteFast(35,1);
 		// figure out file position to load into the buffer
@@ -363,8 +362,9 @@ public:
 		size_t seekPos = basePos * element_size;
 		size_t bytesRead = 0;
 
-		if(/*seekPos < (size_t)_constantPreloadedBuffer->buffer_size*/ false) {
-			memcpy(buf->buffer, _constantPreloadedBuffer->buffer + seekPos, BUFFER_SIZE * element_size);
+		if(seekPos == 0) {
+			memcpy(buf->buffer, _constantPreloadedBuffer->buffer, BUFFER_SIZE * element_size);
+			bytesRead = BUFFER_SIZE * element_size;
 		} else {
 			// load the sample data from the file: note BUFFER_SIZE is in samples
 			_file.seek(seekPos);
@@ -443,7 +443,7 @@ public:
 	*/
 	int16_t zero = 0;
     int16_t &operator[](int i) {
-			if(false/*_constantPreloadedBuffer != nullptr && i < (int)(_constantPreloadedBuffer->buffer_size>>1)*/) {
+			if(_constantPreloadedBuffer != nullptr && i < (int)(_constantPreloadedBuffer->buffer_size>>1)) {
 				return _constantPreloadedBuffer->buffer[i];
 			} else {
 					int32_t indexFor_i = i >> buffer_to_index_shift;
